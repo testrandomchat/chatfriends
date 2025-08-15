@@ -1,84 +1,67 @@
 
-// server.js
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const multer = require('multer');
-const path = require('path');
-const fetch = require('node-fetch');
-const fs = require('fs');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const multer = require("multer");
+const fetch = require("node-fetch");
+const FormData = require("form-data");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const upload = multer({ dest: 'uploads/' });
+app.use(express.static(path.join(__dirname, "public")));
 
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1405844271424081940/9Xu1-1qINWZWh5EP3jt8AdBZVpGmZY9VGsg1okMvNtFUrcwJ_vX6xaqRDLSiaAxDa8TC";
+const upload = multer({ storage: multer.memoryStorage() });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Discord Webhook URL
+const DISCORD_WEBHOOK = "YOUR_DISCORD_WEBHOOK";
 
-app.post('/upload', upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: '파일 없음' });
+io.on("connection", (socket) => {
+    console.log("A user connected");
 
-        const filePath = path.join(__dirname, req.file.path);
-        const fileName = req.file.originalname;
+    socket.on("chat message", (msg) => {
+        io.emit("chat message", { type: "text", content: msg });
+    });
 
-        // Discord로 전송
-        const formData = new FormData();
-        formData.append('file', fs.createReadStream(filePath), fileName);
-
-        await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', body: formData });
-
-        const fileUrl = `/uploads/${req.file.filename}`;
-        res.json({ url: fileUrl });
-
-    } catch (err) {
-        console.error('이미지 업로드 실패:', err);
-        res.status(500).json({ error: '업로드 실패' });
-    }
+    socket.on("disconnect", () => {
+        console.log("A user disconnected");
+    });
 });
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Catbox 이미지 업로드 API
+app.post("/upload", upload.single("file"), async (req, res) => {
+    try {
+        const formData = new FormData();
+        formData.append("reqtype", "fileupload");
+        formData.append("fileToUpload", req.file.buffer, req.file.originalname);
 
-let waitingUser = null;
+        const catboxRes = await fetch("https://catbox.moe/user/api.php", {
+            method: "POST",
+            body: formData
+        });
 
-io.on('connection', (socket) => {
-    if (waitingUser) {
-        const partner = waitingUser;
-        waitingUser = null;
-        socket.partner = partner;
-        partner.partner = socket;
-        socket.emit('matched');
-        partner.emit('matched');
-    } else {
-        waitingUser = socket;
+        const url = await catboxRes.text();
+
+        // 채팅창에 이미지 표시
+        io.emit("chat message", { type: "image", content: url });
+
+        // Discord로 URL 전송
+        await fetch(DISCORD_WEBHOOK, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: url })
+        });
+
+        res.json({ success: true, url });
+    } catch (err) {
+        console.error("Upload error:", err);
+        res.status(500).json({ success: false });
     }
-
-    socket.on('message', (msg) => {
-        if (socket.partner) {
-            socket.partner.emit('message', msg);
-        }
-    });
-
-    socket.on('leaveRoom', () => {
-        if (socket.partner) {
-            socket.partner.emit('partnerLeft');
-            socket.partner.partner = null;
-            socket.partner = null;
-        }
-        if (waitingUser === socket) waitingUser = null;
-    });
-
-    socket.on('disconnect', () => {
-        if (socket.partner) {
-            socket.partner.emit('partnerLeft');
-            socket.partner.partner = null;
-        }
-        if (waitingUser === socket) waitingUser = null;
-    });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});

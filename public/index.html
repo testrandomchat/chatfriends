@@ -1,20 +1,26 @@
+
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>챗프렌즈</title>
-    <link rel="stylesheet" href="style.css">
+    <title>ChatFriends</title>
+    <style>
+        body { font-family: Arial; }
+        #messages { list-style-type: none; padding: 0; max-height: 300px; overflow-y: auto; border: 1px solid #ccc; }
+        #messages li { padding: 5px 10px; }
+        img { max-width: 200px; display: block; margin-top: 5px; }
+    </style>
 </head>
 <body>
-    <div id="chat">
-        <div id="messages"></div>
-        <input id="msg" type="text" placeholder="메시지 입력...">
-        <button id="send">전송</button>
-        <input type="file" id="imageUpload" accept="image/*">
-        <button id="sendImage">이미지 전송</button>
-        <button id="leave">나가기 / 새로 매칭</button>
-    </div>
+    <ul id="messages"></ul>
+    <form id="form">
+        <input id="input" autocomplete="off" placeholder="메시지 입력" />
+        <button>전송</button>
+    </form>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" />
+        <button type="submit">사진 전송</button>
+    </form>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>
