@@ -1,63 +1,85 @@
 const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http);
-const multer = require('multer');
 const path = require('path');
+const http = require('http');
+const multer = require('multer');
+const { Server } = require('socket.io');
 
-// 이미지 저장 폴더 설정
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+// 정적 파일
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// 파일 업로드 설정 (uploads/에 저장)
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/');
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, 'uploads'));
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
-let waitingUser = null;
-
-app.use(express.static('public'));
-app.use('/uploads', express.static('uploads'));
-
-// 이미지 업로드 처리
 app.post('/upload', upload.single('image'), (req, res) => {
-    res.json({ url: '/uploads/' + req.file.filename });
+  return res.json({ url: `/uploads/${req.file.filename}` });
 });
+
+// 랜덤 매칭
+let waiting = null;
 
 io.on('connection', (socket) => {
-    if (waitingUser) {
-        socket.partner = waitingUser;
-        waitingUser.partner = socket;
-        waitingUser.emit('matched');
-        socket.emit('matched');
-        waitingUser = null;
-    } else {
-        waitingUser = socket;
+  // 매칭
+  if (waiting) {
+    const room = `${waiting.id}#${socket.id}`;
+    socket.join(room);
+    waiting.join(room);
+    socket.room = room;
+    waiting.room = room;
+
+    socket.emit('matched');
+    waiting.emit('matched');
+
+    waiting = null;
+  } else {
+    waiting = socket;
+  }
+
+  // 메시지
+  socket.on('message', (msg) => {
+    if (!socket.room) return;
+    socket.to(socket.room).emit('message', msg);
+  });
+
+  // 나가기 / 새 매칭
+  socket.on('leaveRoom', () => {
+    if (socket.room) {
+      socket.to(socket.room).emit('partnerLeft');
+      socket.leave(socket.room);
+      socket.room = null;
     }
+    if (!waiting) waiting = socket;
+  });
 
-    socket.on('message', (msg) => {
-        if (socket.partner) socket.partner.emit('message', msg);
-    });
+  // 종료
+  socket.on('disconnect', () => {
+    if (waiting && waiting.id === socket.id) {
+      waiting = null;
+    }
+    if (socket.room) {
+      socket.to(socket.room).emit('partnerLeft');
+    }
+  });
+});
 
-    socket.on('leaveRoom', () => {
-        if (socket.partner) {
-            socket.partner.emit('partnerLeft');
-            socket.partner.partner = null;
-            socket.partner = null;
-        }
-        if (waitingUser === socket) waitingUser = null;
-    });
-
-    socket.on('disconnect', () => {
-        if (socket.partner) {
-            socket.partner.emit('partnerLeft');
-            socket.partner.partner = null;
-        }
-        if (waitingUser === socket) waitingUser = null;
-    });
+// 루트 경로: 채팅 페이지
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log('Server running on port ' + PORT));
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

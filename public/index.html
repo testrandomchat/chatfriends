@@ -1,20 +1,33 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>랜덤 채팅</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>챗프렌즈 - 랜덤 채팅</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="app">
+    <h1>챗프렌즈</h1>
     <div id="chat">
-        <div id="messages"></div>
-        <input id="msg" type="text" placeholder="메시지 입력...">
+      <div id="messages"></div>
+
+      <div class="row">
+        <input id="msg" type="text" placeholder="메시지 입력... (Enter 전송)" />
         <button id="send">전송</button>
-        <input type="file" id="imageUpload" accept="image/*">
-        <button id="leave">나가기 / 새로 매칭</button>
+      </div>
+
+      <div class="row">
+        <input type="file" id="imageUpload" accept="image/*" />
+        <button id="sendImage">사진 전송</button>
+        <button id="leave">나가기 / 새 매칭</button>
+      </div>
+
+      <p class="hint">※ 사진은 서버의 <code>uploads/</code> 폴더에 저장됩니다.</p>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

@@ -1,62 +1,63 @@
 const socket = io();
 const messages = document.getElementById('messages');
 const msgInput = document.getElementById('msg');
+const sendBtn = document.getElementById('send');
+const fileInput = document.getElementById('imageUpload');
+const sendImageBtn = document.getElementById('sendImage');
+const leaveBtn = document.getElementById('leave');
 
-function scrollToBottom() {
-    messages.scrollTop = messages.scrollHeight;
+function addLine(html, cls='') {
+  const div = document.createElement('div');
+  if (cls) div.className = cls;
+  div.innerHTML = html;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
 }
 
-socket.on('matched', () => {
-    messages.innerHTML += '<div>상대를 찾았습니다!</div>';
-    scrollToBottom();
-});
-
-socket.on('message', (msg) => {
-    messages.innerHTML += '<div>' + msg + '</div>';
-    scrollToBottom();
-});
-
-socket.on('partnerLeft', () => {
-    messages.innerHTML += '<div>상대가 나갔습니다.</div>';
-    scrollToBottom();
-});
-
-document.getElementById('send').onclick = sendMessage;
-
-msgInput.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        sendMessage();
-    }
-});
+socket.on('matched', () => addLine('상대를 찾았습니다!', 'sys'));
+socket.on('partnerLeft', () => addLine('상대가 나갔습니다.', 'sys'));
+socket.on('message', (msg) => addLine(msg));
 
 function sendMessage() {
-    const msg = msgInput.value;
-    if (msg) {
-        socket.emit('message', msg);
-        messages.innerHTML += '<div style="color:blue;">나: ' + msg + '</div>';
-        msgInput.value = '';
-        scrollToBottom();
-    }
+  const msg = msgInput.value.trim();
+  if (!msg) return;
+  socket.emit('message', msg);
+  addLine('나: ' + msg, 'mine');
+  msgInput.value = '';
 }
 
-document.getElementById('leave').onclick = () => {
-    socket.emit('leaveRoom');
-    messages.innerHTML += '<div>방을 나갔습니다. 새로 매칭 중...</div>';
-    scrollToBottom();
+sendBtn.onclick = sendMessage;
+msgInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+leaveBtn.onclick = () => {
+  socket.emit('leaveRoom');
+  addLine('방을 나갔습니다. 새로 매칭 중...', 'sys');
 };
 
-document.getElementById('imageUpload').onchange = function() {
-    const file = this.files[0];
-    const formData = new FormData();
-    formData.append('image', file);
-
-    fetch('/upload', { method: 'POST', body: formData })
-        .then(res => res.json())
-        .then(data => {
-            const imageTag = '<img src="' + data.url + '" width="200">';
-            const downloadLink = '<br><a href="' + data.url + '" download>다운로드</a>';
-            socket.emit('message', imageTag + downloadLink);
-            messages.innerHTML += '<div style="color:blue;">나: ' + imageTag + downloadLink + '</div>';
-            scrollToBottom();
-        });
+sendImageBtn.onclick = async () => {
+  const file = fileInput.files[0];
+  if (!file) {
+    alert('먼저 이미지를 선택하세요.');
+    return;
+  }
+  const form = new FormData();
+  form.append('image', file);
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    const url = data.url;
+    const html = `<img class="chatimg" src="${url}" alt="uploaded image">` +
+                 `<a class="dl" href="${url}" download>이미지 다운로드</a>`;
+    socket.emit('message', html);
+    addLine('나: ' + html, 'mine');
+    fileInput.value = '';
+  } catch (e) {
+    console.error(e);
+    alert('이미지 업로드 실패');
+  }
 };
