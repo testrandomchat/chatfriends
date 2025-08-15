@@ -18,34 +18,27 @@ function addLine(html, cls='') {
 socket.on('matched', () => addLine('상대를 찾았습니다!', 'sys'));
 socket.on('partnerLeft', () => addLine('상대가 나갔습니다.', 'sys'));
 
-// 메시지 수신
+// 메시지 수신 (텍스트/이미지 구분)
 socket.on('message', (payload) => {
-  if (!payload) return;
-  // 텍스트
-  if (payload.type === 'text' && payload.text) {
-    addLine(payload.text);
+  if (typeof payload === 'string') {
+    addLine(payload);
     return;
   }
-  // 이미지
-  if (payload.type === 'image' && payload.url) {
-    const safeUrl = (payload.url || '').trim();
-    const html = `<img class="chatimg" src="${safeUrl}" alt="image">`;
+  if (payload && payload.type === 'image' && payload.url) {
+    const html = `<img class="chatimg" src="${payload.url}" alt="image">`;
     addLine(html);
     return;
   }
-  // 서버에서 문자열만 보낸 경우 대비
-  if (typeof payload === 'string') {
-    addLine(payload);
+  if (payload && payload.type === 'text' && payload.text) {
+    addLine(payload.text);
   }
 });
 
 function sendMessage() {
   const msg = msgInput.value.trim();
   if (!msg) return;
-  // 내 화면에 먼저 표시
+  socket.emit('message', { type: 'text', text: '나: ' + msg });
   addLine('나: ' + msg, 'mine');
-  // 상대에게 전달
-  socket.emit('message', { type: 'text', text: '상대: ' + msg });
   msgInput.value = '';
 }
 
@@ -77,12 +70,12 @@ sendImageBtn.onclick = async () => {
     const data = await res.json();
     if (!data.ok || !data.url) throw new Error(data.error || '업로드 실패');
 
-    const safeUrl = data.url.trim();
-    const html = `<img class="chatimg" src="${safeUrl}" alt="image">`;
-    // 내 화면
+    // 채팅창에는 URL 텍스트 없이 이미지 엘리먼트만 표시
+    const html = `<img class="chatimg" src="${data.url}" alt="image">`;
+    // 상대에게도 이미지 타입으로 전송
+    socket.emit('message', { type: 'image', url: data.url });
     addLine('나: ' + html, 'mine');
-    // 상대에게도 이미지 알림
-    socket.emit('message', { type: 'image', url: safeUrl });
+
     fileInput.value = '';
   } catch (e) {
     console.error(e);
