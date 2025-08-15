@@ -70,9 +70,7 @@ sendImageBtn.onclick = async () => {
     const data = await res.json();
     if (!data.ok || !data.url) throw new Error(data.error || '업로드 실패');
 
-    // 채팅창에는 URL 텍스트 없이 이미지 엘리먼트만 표시
     const html = `<img class="chatimg" src="${data.url}" alt="image">`;
-    // 상대에게도 이미지 타입으로 전송
     socket.emit('message', { type: 'image', url: data.url });
     addLine('나: ' + html, 'mine');
 
