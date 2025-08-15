@@ -1,7 +1,0 @@
-run = "node server.js"
-language = "nodejs"
-modules = ["nodejs-20"]
-
-[[ports]]
-localPort = 3000
-externalPort = 80
