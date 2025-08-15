@@ -2,28 +2,62 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
+const multer = require('multer');
 const path = require('path');
 
-app.use(express.static(path.join(__dirname, 'public')));
+// 이미지 저장 폴더 설정
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
 
-// 루트 경로에서 index.html 제공
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+let waitingUser = null;
+
+app.use(express.static('public'));
+app.use('/uploads', express.static('uploads'));
+
+// 이미지 업로드 처리
+app.post('/upload', upload.single('image'), (req, res) => {
+    res.json({ url: '/uploads/' + req.file.filename });
 });
 
 io.on('connection', (socket) => {
-  console.log('새 유저 접속');
+    if (waitingUser) {
+        socket.partner = waitingUser;
+        waitingUser.partner = socket;
+        waitingUser.emit('matched');
+        socket.emit('matched');
+        waitingUser = null;
+    } else {
+        waitingUser = socket;
+    }
 
-  socket.on('message', (msg) => {
-    io.emit('message', msg);
-  });
+    socket.on('message', (msg) => {
+        if (socket.partner) socket.partner.emit('message', msg);
+    });
 
-  socket.on('disconnect', () => {
-    console.log('유저 나감');
-  });
+    socket.on('leaveRoom', () => {
+        if (socket.partner) {
+            socket.partner.emit('partnerLeft');
+            socket.partner.partner = null;
+            socket.partner = null;
+        }
+        if (waitingUser === socket) waitingUser = null;
+    });
+
+    socket.on('disconnect', () => {
+        if (socket.partner) {
+            socket.partner.emit('partnerLeft');
+            socket.partner.partner = null;
+        }
+        if (waitingUser === socket) waitingUser = null;
+    });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => {
-  console.log(`서버 실행 중: ${PORT}`);
-});
+http.listen(PORT, () => console.log('Server running on port ' + PORT));

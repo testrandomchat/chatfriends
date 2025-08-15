@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>챗프렌즈</title>
+    <title>랜덤 채팅</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h2>챗프렌즈 - 랜덤 채팅</h2>
     <div id="chat">
         <div id="messages"></div>
         <input id="msg" type="text" placeholder="메시지 입력...">
         <button id="send">전송</button>
+        <input type="file" id="imageUpload" accept="image/*">
+        <button id="leave">나가기 / 새로 매칭</button>
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
