@@ -14,8 +14,11 @@ function addLine(html, cls='') {
   messages.scrollTop = messages.scrollHeight;
 }
 
+// 매칭/시스템 메시지
 socket.on('matched', () => addLine('상대를 찾았습니다!', 'sys'));
 socket.on('partnerLeft', () => addLine('상대가 나갔습니다.', 'sys'));
+
+// 텍스트 메시지 수신
 socket.on('message', (msg) => addLine(msg));
 
 function sendMessage() {
@@ -39,6 +42,7 @@ leaveBtn.onclick = () => {
   addLine('방을 나갔습니다. 새로 매칭 중...', 'sys');
 };
 
+// === 이미지 업로드: 채팅창엔 이미지 "미리보기"만 보여주고, URL 텍스트는 표시하지 않음 ===
 sendImageBtn.onclick = async () => {
   const file = fileInput.files[0];
   if (!file) {
@@ -50,14 +54,16 @@ sendImageBtn.onclick = async () => {
   try {
     const res = await fetch('/upload', { method: 'POST', body: form });
     const data = await res.json();
-    const url = data.url;
-    const html = `<img class="chatimg" src="${url}" alt="uploaded image">` +
-                 `<a class="dl" href="${url}" download>이미지 다운로드</a>`;
+    if (!data.ok) throw new Error(data.error || '업로드 실패');
+
+    // 채팅창에는 URL 텍스트 없이 이미지 엘리먼트만 표시
+    const html = `<img class="chatimg" src="${data.url}" alt="image">`;
     socket.emit('message', html);
     addLine('나: ' + html, 'mine');
+
     fileInput.value = '';
   } catch (e) {
     console.error(e);
-    alert('이미지 업로드 실패');
+    alert('이미지 전송 실패: ' + e.message);
   }
 };

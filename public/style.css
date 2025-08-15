@@ -11,5 +11,4 @@ h1 { margin: 0 0 12px; font-size: 22px; text-align:center; }
 button { padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; background:#fff; cursor:pointer; }
 button:hover { background:#f3f4f6; }
 img.chatimg { max-width: 220px; height: auto; border-radius: 6px; display:block; }
-a.dl { font-size: 12px; display:inline-block; margin-top:4px; }
 .hint { color:#6b7280; font-size: 12px; margin:6px 2px 0; }
