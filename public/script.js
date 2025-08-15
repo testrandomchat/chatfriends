@@ -1,69 +1,60 @@
+
 const socket = io();
 const messages = document.getElementById('messages');
 const msgInput = document.getElementById('msg');
-const sendBtn = document.getElementById('send');
-const fileInput = document.getElementById('imageUpload');
-const sendImageBtn = document.getElementById('sendImage');
-const leaveBtn = document.getElementById('leave');
+const imageInput = document.getElementById('imageUpload');
 
-function addLine(html, cls='') {
-  const div = document.createElement('div');
-  if (cls) div.className = cls;
-  div.innerHTML = html;
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
-}
-
-// 매칭/시스템 메시지
-socket.on('matched', () => addLine('상대를 찾았습니다!', 'sys'));
-socket.on('partnerLeft', () => addLine('상대가 나갔습니다.', 'sys'));
-
-// 텍스트 메시지 수신
-socket.on('message', (msg) => addLine(msg));
-
-function sendMessage() {
-  const msg = msgInput.value.trim();
-  if (!msg) return;
-  socket.emit('message', msg);
-  addLine('나: ' + msg, 'mine');
-  msgInput.value = '';
-}
-
-sendBtn.onclick = sendMessage;
-msgInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    sendMessage();
-  }
+socket.on('matched', () => {
+    messages.innerHTML += '<div>상대를 찾았습니다!</div>';
 });
 
-leaveBtn.onclick = () => {
-  socket.emit('leaveRoom');
-  addLine('방을 나갔습니다. 새로 매칭 중...', 'sys');
-};
+socket.on('message', (msg) => {
+    messages.innerHTML += '<div>' + msg + '</div>';
+});
 
-// === 이미지 업로드: 채팅창엔 이미지 "미리보기"만 보여주고, URL 텍스트는 표시하지 않음 ===
-sendImageBtn.onclick = async () => {
-  const file = fileInput.files[0];
-  if (!file) {
-    alert('먼저 이미지를 선택하세요.');
-    return;
-  }
-  const form = new FormData();
-  form.append('image', file);
-  try {
-    const res = await fetch('/upload', { method: 'POST', body: form });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || '업로드 실패');
+socket.on('partnerLeft', () => {
+    messages.innerHTML += '<div>상대가 나갔습니다.</div>';
+});
 
-    // 채팅창에는 URL 텍스트 없이 이미지 엘리먼트만 표시
-    const html = `<img class="chatimg" src="${data.url}" alt="image">`;
-    socket.emit('message', html);
-    addLine('나: ' + html, 'mine');
+document.getElementById('send').onclick = sendMessage;
+document.getElementById('sendImage').onclick = sendImage;
 
-    fileInput.value = '';
-  } catch (e) {
-    console.error(e);
-    alert('이미지 전송 실패: ' + e.message);
-  }
+// 엔터로 메시지 전송
+msgInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+function sendMessage() {
+    const msg = msgInput.value;
+    if (msg) {
+        socket.emit('message', msg);
+        messages.innerHTML += '<div style="color:blue;">나: ' + msg + '</div>';
+        msgInput.value = '';
+    }
+}
+
+function sendImage() {
+    const file = imageInput.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    fetch('/upload', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.url) {
+                const imgTag = '<img src="' + data.url + '" width="200">';
+                socket.emit('message', imgTag);
+                messages.innerHTML += '<div style="color:blue;">나: ' + imgTag + '</div>';
+            } else {
+                alert('이미지 업로드 실패');
+            }
+        })
+        .catch(() => alert('이미지 업로드 실패'));
+}
+
+document.getElementById('leave').onclick = () => {
+    socket.emit('leaveRoom');
+    messages.innerHTML += '<div>방을 나갔습니다. 새로 매칭 중...</div>';
 };
