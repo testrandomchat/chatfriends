@@ -1,11 +1,10 @@
-// server.js
 const express = require('express');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
 const multer = require('multer');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
-const CATBOX_API = 'https://catbox.moe/user/api.php';
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1405844271424081940/9Xu1-1qINWZWh5EP3jt8AdBZVpGmZY9VGsg1okMvNtFUrcwJ_vX6xaqRDLSiaAxDa8TC';
 
 const app = express();
@@ -25,25 +24,21 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     if (!req.file) return res.status(400).json({ ok: false, error: '파일 없음' });
 
     const form = new FormData();
-    form.append('reqtype', 'fileupload');
-    form.append('fileToUpload', new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname);
+    form.append('file', new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname);
+    form.append('payload_json', JSON.stringify({ content: '' }));
 
-    const catboxResp = await fetch(CATBOX_API, { method: 'POST', body: form });
-    const catboxText = (await catboxResp.text()).trim();
+    const discordResp = await fetch(DISCORD_WEBHOOK_URL + "?wait=true", {
+      method: 'POST',
+      body: form
+    });
 
-    if (!catboxResp.ok || !/^https?:\/\//.test(catboxText)) {
-      return res.status(500).json({ ok: false, error: '이미지 업로드 실패' });
+    const discordData = await discordResp.json();
+    if (!discordResp.ok || !discordData.attachments || !discordData.attachments[0]) {
+      return res.status(500).json({ ok: false, error: 'Discord 업로드 실패' });
     }
 
-    if (DISCORD_WEBHOOK_URL) {
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: catboxText })
-      });
-    }
-
-    res.json({ ok: true, url: catboxText });
+    const imageUrl = discordData.attachments[0].url;
+    res.json({ ok: true, url: imageUrl });
   } catch (e) {
     res.status(500).json({ ok: false, error: '서버 오류' });
   }
